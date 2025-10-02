@@ -1,15 +1,21 @@
-import React, { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../context/authContext";
 import { loginUser } from "../services/authService";
 import { useNavigate } from "react-router-dom";
-import { loginMember } from "../services/authService";
 
 const MemberLogin = () => {
-  const { setAuthData, loading, setLoading } = useContext(AuthContext);
+  const { authData, setAuthData, loading, setLoading } = useContext(AuthContext);  // Added authData
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && authData?.token && authData.role === "member") {
+      console.log("Auth data updated, navigating to dashboard");
+      navigate("/member-dashboard", { replace: true });
+    }
+  }, [authData, loading, navigate]);  // eslint-disable-next-line react-hooks/exhaustive-deps 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,21 +30,36 @@ const MemberLogin = () => {
 
     try {
       const response = await loginUser({ email, password });
-      console.log("Login response:", response); // Debug response
-      setAuthData({
-        ...response.data,
-        role: response.data.data.role,
-      });
-      console.log("Auth data set:", { ...response.data, role: response.data.data.role }); // Debug authData
-
-      if (response.data.data.role === "member") {
-        navigate("/member-dashboard", { replace: true });
-      } else {
+      console.log("Full response:", response);
+      console.log("Response data:", response.data);
+      
+      const { token, data: userData } = response.data;
+      
+      console.log("Token:", token);
+      console.log("User data:", userData);
+      console.log("User role:", userData.role);
+      
+      if (userData.role !== "member") {
         setError("Invalid member credentials");
+        setLoading(false);
+        return;
       }
+      
+      const authDataToStore = {
+        token: token,
+        role: userData.role,
+        user: userData
+      };
+      
+      console.log("Storing auth data:", authDataToStore);
+      
+      setAuthData(authDataToStore);
+      localStorage.setItem("authData", JSON.stringify(authDataToStore));
+      
     } catch (err) {
-      console.error("Login error:", err); // Debug error
-      setError(err.response?.data?.message || "Login failed");
+      console.error("Login error:", err);
+      console.error("Error response:", err.response);
+      setError(err.response?.data?.message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -75,6 +96,7 @@ const MemberLogin = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
+              required
               style={{ 
                 width: "100%", 
                 padding: "12px", 
@@ -94,6 +116,7 @@ const MemberLogin = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
+              required
               style={{ 
                 width: "100%", 
                 padding: "12px", 
@@ -130,7 +153,7 @@ const MemberLogin = () => {
               borderRadius: "4px",
               fontSize: "16px",
               fontWeight: "500",
-              cursor: "pointer",
+              cursor: loading ? "not-allowed" : "pointer",
               opacity: loading ? 0.7 : 1
             }}
           >

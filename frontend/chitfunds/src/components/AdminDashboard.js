@@ -8,11 +8,33 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
+  const [chitGroups, setChitGroups] = useState([]);
+const [loadingChits, setLoadingChits] = useState(true);
+
   console.log("API URL:", process.env.REACT_APP_API_URL);
 
   useEffect(() => {
     fetchMembers();
+    fetchChitGroups();
   }, []); 
+const fetchChitGroups = async () => {
+  try {
+    setLoadingChits(true);
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+    const response = await fetch(`${apiUrl}/admin/chit-groups`, {
+      headers: {
+        Authorization: `Bearer ${authData?.token}`,
+      },
+    });
+    const data = await response.json();
+    setChitGroups(data.data || []);
+  } catch (err) {
+    console.error("Fetch chit groups error:", err);
+    setError("Failed to fetch chit groups");
+  } finally {
+    setLoadingChits(false);
+  }
+};
 
 const fetchMembers = async () => {
   try {

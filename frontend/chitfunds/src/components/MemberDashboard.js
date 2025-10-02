@@ -29,7 +29,7 @@ const MemberDashboard = () => {
 
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
             <span style={{ color: "#666" }}>
-              Welcome, {authData?.data?.firstName} {authData?.data?.lastName}
+              Welcome, {authData?.user?.firstName} {authData?.user?.lastName}
             </span>
             <button
               onClick={logout}
@@ -113,25 +113,25 @@ const MemberDashboard = () => {
             <div
               style={{
                 backgroundColor:
-                  authData?.data?.status === "approved"
+                  authData?.user?.status === "approved"
                     ? "#d4edda"
                     : "#fff3cd",
                 color:
-                  authData?.data?.status === "approved"
+                  authData?.user?.status === "approved"
                     ? "#155724"
                     : "#856404",
                 padding: "15px",
                 borderRadius: "8px",
                 marginBottom: "30px",
                 border: `1px solid ${
-                  authData?.data?.status === "approved"
+                  authData?.user?.status === "approved"
                     ? "#c3e6cb"
                     : "#ffeaa7"
                 }`,
               }}
             >
               <strong>Account Status: </strong>
-              {authData?.data?.status === "approved"
+              {authData?.user?.status === "approved"
                 ? "Your account is approved and active!"
                 : "Your account is pending approval. Please wait for admin confirmation."}
             </div>
@@ -272,7 +272,7 @@ const MemberDashboard = () => {
               <p style={{ color: "#666", marginBottom: "20px" }}>
                 You haven't joined any chit groups yet. Contact the admin to join available groups.
               </p>
-              {authData?.data?.status !== "approved" && (
+              {authData?.user?.status !== "approved" && (
                 <p
                   style={{
                     color: "#856404",
@@ -369,7 +369,7 @@ const MemberDashboard = () => {
                         color: "#333",
                       }}
                     >
-                      {authData?.data?.firstName} {authData?.data?.lastName}
+                      {authData?.user?.firstName} {authData?.user?.lastName}
                     </p>
                   </div>
 
@@ -393,7 +393,7 @@ const MemberDashboard = () => {
                         color: "#333",
                       }}
                     >
-                      {authData?.data?.email}
+                      {authData?.user?.email}
                     </p>
                   </div>
 
@@ -417,7 +417,7 @@ const MemberDashboard = () => {
                         color: "#333",
                       }}
                     >
-                      {authData?.data?.phone || "Not provided"}
+                      {authData?.user?.phone || "Not provided"}
                     </p>
                   </div>
                 </div>
@@ -447,7 +447,7 @@ const MemberDashboard = () => {
                         color: "#333",
                       }}
                     >
-                      {authData?.data?.id || "Not assigned"}
+                      {authData?.user?.id || "Not assigned"}
                     </p>
                   </div>
 
@@ -467,18 +467,18 @@ const MemberDashboard = () => {
                         margin: 0,
                         padding: "10px",
                         backgroundColor:
-                          authData?.data?.status === "approved"
+                          authData?.user?.status === "approved"
                             ? "#d4edda"
                             : "#fff3cd",
                         color:
-                          authData?.data?.status === "approved"
+                          authData?.user?.status === "approved"
                             ? "#155724"
                             : "#856404",
                         borderRadius: "4px",
                         fontWeight: "500",
                       }}
                     >
-                      {authData?.data?.status === "approved"
+                      {authData?.user?.status === "approved"
                         ? "✓ Approved"
                         : "⏳ Pending Approval"}
                     </p>
@@ -504,8 +504,8 @@ const MemberDashboard = () => {
                         color: "#333",
                       }}
                     >
-                      {authData?.data?.createdAt
-                        ? new Date(authData.data.createdAt).toLocaleDateString()
+                      {authData?.user?.createdAt
+                        ? new Date(authData.user.createdAt).toLocaleDateString()
                         : "N/A"}
                     </p>
                   </div>
@@ -520,31 +520,7 @@ const MemberDashboard = () => {
                   textAlign: "center",
                 }}
               >
-                <button
-                  style={{
-                    padding: "10px 20px",
-                    backgroundColor: "#007bff",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    marginRight: "10px",
-                  }}
-                >
-                  Edit Profile
-                </button>
-                <button
-                  style={{
-                    padding: "10px 20px",
-                    backgroundColor: "#6c757d",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
-                >
-                  Change Password
-                </button>
+             
               </div>
             </div>
           </div>

@@ -27,18 +27,20 @@ export const AuthProvider = ({ children }) => {
   const isAuthenticated = () => {
     const result = authData && authData.token;
     console.log("isAuthenticated check:", result, authData); // Debug
-    return result;
+    return !!result;
   };
 
   const isAdmin = () => {
+    // Check authData.role directly (we set it at top level in login)
     const result = authData && authData.role === "admin";
-    console.log("isAdmin check:", result, authData); // Debug
+    console.log("isAdmin check:", result, "authData:", authData); // Debug
     return result;
   };
 
   const isMember = () => {
+    // Check authData.role directly (we set it at top level in login)
     const result = authData && authData.role === "member";
-    console.log("isMember check:", result, authData); // Debug
+    console.log("isMember check:", result, "authData:", authData); // Debug
     return result;
   };
 

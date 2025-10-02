@@ -1,12 +1,14 @@
 import React, { useState, useContext } from "react";
 import { AuthContext } from "../context/authContext";
 import { adminLogin } from "../services/authService";
+import { useNavigate } from "react-router-dom";
 
 const AdminLogin = () => {
-  const { setAuthData, setLoading } = useContext(AuthContext);
+  const { setAuthData, loading, setLoading } = useContext(AuthContext);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,9 +23,24 @@ const AdminLogin = () => {
 
     try {
       const response = await adminLogin({ username, password });
-      setAuthData(response.data);
-      window.location.href = "/admin-dashboard";
+      console.log("Admin login response:", response.data); // Debug
+      
+      // Extract user data and token from response
+      const { token, data: userData, role } = response.data;
+      
+      // Store in the format expected by authContext
+      const authDataToStore = {
+        token: token,
+        role: role || userData.role,
+        user: userData
+      };
+      
+      console.log("Setting admin auth data:", authDataToStore); // Debug
+      setAuthData(authDataToStore);
+      
+      navigate("/admin-dashboard", { replace: true });
     } catch (err) {
+      console.error("Admin login error:", err); // Debug
       setError(err.response?.data?.message || "Admin login failed");
     } finally {
       setLoading(false);
@@ -106,7 +123,7 @@ const AdminLogin = () => {
 
           <button
             type="submit"
-            disabled={setLoading}
+            disabled={loading}
             style={{ 
               width: "100%", 
               padding: "12px", 
@@ -117,10 +134,10 @@ const AdminLogin = () => {
               fontSize: "16px",
               fontWeight: "500",
               cursor: "pointer",
-              opacity: setLoading ? 0.7 : 1
+              opacity: loading ? 0.7 : 1
             }}
           >
-            {setLoading ? "Signing in..." : "Sign In as Admin"}
+            {loading ? "Signing in..." : "Sign In as Admin"}
           </button>
         </form>
 

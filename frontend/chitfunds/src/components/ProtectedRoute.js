@@ -1,92 +1,51 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect } from "react";
+import { Navigate } from "react-router-dom";
 import { AuthContext } from "../context/authContext";
 
 const ProtectedRoute = ({ children, requiredRole }) => {
-  const { authData, isAuthenticated, isAdmin, isMember } = useContext(AuthContext);
+  const { authData, loading } = useContext(AuthContext);  // Add loading from context
 
-  // Check if user is authenticated
-  if (!isAuthenticated()) {
-    window.location.href = "/";
-    return null;
+  useEffect(() => {
+    console.log("=== ProtectedRoute Check ===");
+    console.log("authData:", authData);
+    console.log("requiredRole:", requiredRole);
+    console.log("localStorage authData:", localStorage.getItem("authData"));
+  }, [authData, requiredRole]);
+
+  // If loading (e.g., during auth state update), show spinner instead of redirect
+  if (loading) {
+    return <div>Loading...</div>;  // Or a proper spinner component
   }
 
-  // Check role-based access
-  if (requiredRole === "admin" && !isAdmin()) {
-    return (
-      <div style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#f8f9fa"
-      }}>
-        <div style={{
-          backgroundColor: "white",
-          padding: "40px",
-          borderRadius: "8px",
-          boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-          textAlign: "center"
-        }}>
-          <h2 style={{ color: "#dc3545", marginBottom: "20px" }}>Access Denied</h2>
-          <p style={{ color: "#666", marginBottom: "20px" }}>
-            You don't have permission to access this area.
-          </p>
-          <button
-            onClick={() => window.location.href = "/"}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer"
-            }}
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
+  const effectiveAuthData = authData || JSON.parse(localStorage.getItem("authData") || "null");
+  
+  console.log("effectiveAuthData:", effectiveAuthData);
+
+  if (!effectiveAuthData || !effectiveAuthData.token) {
+    console.log("No auth data or token, redirecting to /");
+    return <Navigate to="/" replace />;
   }
 
-  if (requiredRole === "member" && !isMember()) {
-    return (
-      <div style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#f8f9fa"
-      }}>
-        <div style={{
-          backgroundColor: "white",
-          padding: "40px",
-          borderRadius: "8px",
-          boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-          textAlign: "center"
-        }}>
-          <h2 style={{ color: "#dc3545", marginBottom: "20px" }}>Access Denied</h2>
-          <p style={{ color: "#666", marginBottom: "20px" }}>
-            This area is for members only.
-          </p>
-          <button
-            onClick={() => window.location.href = "/"}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer"
-            }}
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
+  if (requiredRole) {
+    const userRole = effectiveAuthData.role;
+    console.log("User role:", userRole, "Required role:", requiredRole);
+    
+    if (userRole !== requiredRole) {
+      console.log("Role mismatch!");
+      if (userRole === "admin") {
+        console.log("User is admin, redirecting to admin dashboard");
+        return <Navigate to="/admin-dashboard" replace />;
+      } else if (userRole === "member") {
+        console.log("User is member, redirecting to member dashboard");
+        return <Navigate to="/member-dashboard" replace />;
+      } else {
+        console.log("Unknown role, redirecting to /");
+        return <Navigate to="/" replace />;
+      }
+    }
   }
 
+  console.log("Auth check passed, rendering protected content");
   return children;
 };
 
