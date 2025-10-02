@@ -19,7 +19,6 @@ router.get('/members', async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
 
-    // Build the query
     let query = `
       SELECT id, firstName, lastName, email, phone, address, idType, idNumber, role, status, createdAt, updatedAt 
       FROM users 
@@ -32,12 +31,10 @@ router.get('/members', async (req, res) => {
       queryParams.push(status);
     }
 
-    // Use direct numbers for LIMIT/OFFSET (safer for MySQL)
     query += ` ORDER BY createdAt DESC LIMIT ${limit} OFFSET ${offset}`;
 
     const [members] = await pool.execute(query, queryParams);
 
-    // Get total count
     let countQuery = 'SELECT COUNT(*) as total FROM users WHERE role = "member"';
     let countParams = [];
 
@@ -74,7 +71,6 @@ router.put('/members/:id/approve', async (req, res) => {
       return res.status(400).json({ message: 'Invalid member ID' });
     }
 
-    // Check if member exists and is pending
     const [members] = await pool.execute(
       'SELECT id, firstName, lastName, email, status FROM users WHERE id = ? AND role = "member"',
       [memberId]
@@ -90,7 +86,6 @@ router.put('/members/:id/approve', async (req, res) => {
       return res.status(400).json({ message: 'Member is already approved' });
     }
 
-    // Approve member
     const [result] = await pool.execute(
       'UPDATE users SET status = "approved", updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
       [memberId]
@@ -115,13 +110,12 @@ router.put('/members/:id/approve', async (req, res) => {
 router.delete('/members/:id', async (req, res) => {
   try {
     const memberId = parseInt(req.params.id);
-    const action = req.query.action || 'delete'; // 'delete' or 'reject'
+    const action = req.query.action || 'delete';
 
     if (isNaN(memberId)) {
       return res.status(400).json({ message: 'Invalid member ID' });
     }
 
-    // Check if member exists
     const [members] = await pool.execute(
       'SELECT id, firstName, lastName, email FROM users WHERE id = ? AND role = "member"',
       [memberId]
@@ -134,7 +128,6 @@ router.delete('/members/:id', async (req, res) => {
     const member = members[0];
 
     if (action === 'reject') {
-      // Just update status to rejected
       await pool.execute(
         'UPDATE users SET status = "rejected", updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
         [memberId]
@@ -143,7 +136,6 @@ router.delete('/members/:id', async (req, res) => {
         message: `${member.firstName} ${member.lastName} has been rejected` 
       });
     } else {
-      // Check if member has active chit participations
       const [activeChits] = await pool.execute(
         'SELECT COUNT(*) as count FROM chit_members WHERE userId = ? AND status = "active"',
         [memberId]
@@ -155,7 +147,6 @@ router.delete('/members/:id', async (req, res) => {
         });
       }
 
-      // Delete member
       await pool.execute('DELETE FROM users WHERE id = ?', [memberId]);
       res.json({ 
         message: `${member.firstName} ${member.lastName} has been deleted successfully` 
@@ -172,32 +163,26 @@ router.delete('/members/:id', async (req, res) => {
 // @access  Private (Admin)
 router.get('/dashboard-stats', async (req, res) => {
   try {
-    // Get total members count
     const [totalMembers] = await pool.execute(
       'SELECT COUNT(*) as count FROM users WHERE role = "member"'
     );
 
-    // Get approved members count
     const [approvedMembers] = await pool.execute(
       'SELECT COUNT(*) as count FROM users WHERE role = "member" AND status = "approved"'
     );
 
-    // Get pending members count
     const [pendingMembers] = await pool.execute(
       'SELECT COUNT(*) as count FROM users WHERE role = "member" AND status = "pending"'
     );
 
-    // Get active chit groups count
     const [activeChits] = await pool.execute(
       'SELECT COUNT(*) as count FROM chit_groups WHERE status = "active"'
     );
 
-    // Get total transactions amount
     const [totalTransactions] = await pool.execute(
       'SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = "completed"'
     );
 
-    // Get recent members (last 5)
     const [recentMembers] = await pool.execute(`
       SELECT id, firstName, lastName, email, status, createdAt 
       FROM users 
@@ -219,6 +204,32 @@ router.get('/dashboard-stats', async (req, res) => {
   } catch (error) {
     console.error('Get dashboard stats error:', error);
     res.status(500).json({ message: 'Error retrieving dashboard statistics' });
+  }
+});
+// adminRoutes.js
+router.post('/chit-groups', async (req, res) => {
+  try {
+    const { name, description, amount, durationMonths, membersLimit, status } = req.body;
+    const adminId = req.user.id;
+
+    if (!name || !amount || !durationMonths || !membersLimit) {
+      return res.status(400).json({ message: "All fields (name, amount, durationMonths, membersLimit) are required." });
+    }
+
+    // Example logic: monthly contribution per member
+    const monthlyContribution = (amount / membersLimit) / durationMonths;
+
+    const [result] = await pool.execute(
+      `INSERT INTO chit_groups 
+       (name, description, amount, durationMonths, membersLimit, monthlyContribution, status, createdBy, createdAt) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [name, description || null, amount, durationMonths, membersLimit, monthlyContribution, status || 'active', adminId]
+    );
+
+    res.status(201).json({ message: "Chit group created successfully", id: result.insertId });
+  } catch (error) {
+    console.error('Chit group creation error:', error);
+    res.status(500).json({ message: `Failed to create chit group: ${error.message}` });
   }
 });
 
@@ -251,45 +262,24 @@ router.get('/chit-groups', async (req, res) => {
 // @access  Private (Admin)
 router.post('/chit-groups', async (req, res) => {
   try {
-    // Validate input
-    const { error } = validateChitGroup(req.body);
-    if (error) {
-      return res.status(400).json({ message: error.details[0].message });
+    const { name, description, amount, durationMonths, membersLimit, status } = req.body;
+    const adminId = req.user.id; // From auth middleware
+
+    // Basic validation
+    if (!name || !amount || !durationMonths || !membersLimit) {
+      return res.status(400).json({ message: "All fields (name, amount, durationMonths, membersLimit) are required." });
     }
 
-    const {
-      name,
-      totalAmount,
-      monthlyContribution,
-      duration,
-      totalMembers,
-      startDate
-    } = req.body;
-
-    // Calculate end date
-    const start = new Date(startDate);
-    const endDate = new Date(start.setMonth(start.getMonth() + duration));
-
-    // Create chit group
-    const [result] = await pool.execute(`
-      INSERT INTO chit_groups 
-      (name, totalAmount, monthlyContribution, duration, totalMembers, startDate, endDate, createdBy, status) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
-    `, [name, totalAmount, monthlyContribution, duration, totalMembers, startDate, endDate, req.user.id]);
-
-    // Get created chit group
-    const [newChitGroup] = await pool.execute(
-      'SELECT * FROM chit_groups WHERE id = ?',
-      [result.insertId]
+    // Insert into DB
+    const [result] = await pool.execute(
+      'INSERT INTO chit_groups (name, description, amount, duration_months, members_limit, status, createdBy, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())',
+      [name, description || null, amount, durationMonths, membersLimit, status || 'active', adminId]
     );
 
-    res.status(201).json({
-      message: 'Chit group created successfully',
-      data: newChitGroup[0]
-    });
+    res.status(201).json({ message: "Chit group created successfully", id: result.insertId });
   } catch (error) {
-    console.error('Create chit group error:', error);
-    res.status(500).json({ message: 'Error creating chit group' });
+    console.error('Chit group creation error:', error);
+    res.status(500).json({ message: `Failed to create chit group: ${error.message}` });
   }
 });
 
@@ -306,7 +296,6 @@ router.put('/chit-groups/:id', async (req, res) => {
 
     const { name, status } = req.body;
 
-    // Check if chit group exists
     const [existingGroups] = await pool.execute(
       'SELECT id FROM chit_groups WHERE id = ?',
       [chitGroupId]
@@ -353,7 +342,6 @@ router.post('/chit-groups/:id/add-member', async (req, res) => {
       return res.status(400).json({ message: 'Invalid chit group ID or user ID' });
     }
 
-    // Check if chit group exists and is active
     const [chitGroups] = await pool.execute(
       'SELECT totalMembers FROM chit_groups WHERE id = ? AND status = "active"',
       [chitGroupId]
@@ -363,7 +351,6 @@ router.post('/chit-groups/:id/add-member', async (req, res) => {
       return res.status(404).json({ message: 'Chit group not found or not active' });
     }
 
-    // Check if user exists and is approved member
     const [users] = await pool.execute(
       'SELECT id, firstName, lastName FROM users WHERE id = ? AND role = "member" AND status = "approved"',
       [userId]
@@ -373,7 +360,6 @@ router.post('/chit-groups/:id/add-member', async (req, res) => {
       return res.status(404).json({ message: 'User not found or not approved member' });
     }
 
-    // Check if member is already in the group
     const [existingMember] = await pool.execute(
       'SELECT id FROM chit_members WHERE chitGroupId = ? AND userId = ?',
       [chitGroupId, userId]
@@ -383,7 +369,6 @@ router.post('/chit-groups/:id/add-member', async (req, res) => {
       return res.status(400).json({ message: 'Member is already in this chit group' });
     }
 
-    // Check if group has space
     const [currentMembers] = await pool.execute(
       'SELECT COUNT(*) as count FROM chit_members WHERE chitGroupId = ? AND status = "active"',
       [chitGroupId]
@@ -393,7 +378,6 @@ router.post('/chit-groups/:id/add-member', async (req, res) => {
       return res.status(400).json({ message: 'Chit group is already full' });
     }
 
-    // Add member to chit group
     await pool.execute(
       'INSERT INTO chit_members (chitGroupId, userId) VALUES (?, ?)',
       [chitGroupId, userId]
@@ -430,7 +414,6 @@ router.get('/transactions', async (req, res) => {
       LIMIT ? OFFSET ?
     `, [limit, offset]);
 
-    // Get total count
     const [countResult] = await pool.execute('SELECT COUNT(*) as total FROM transactions');
 
     res.json({
