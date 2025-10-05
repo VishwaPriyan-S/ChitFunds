@@ -109,10 +109,9 @@ router.get('/transactions', requireApprovedMember, async (req, res) => {
       JOIN chit_groups cg ON t.chitGroupId = cg.id
       WHERE t.userId = ?
       ORDER BY t.createdAt DESC
-      LIMIT ? OFFSET ?
-    `, [req.user.id, limit, offset]);
+      LIMIT ${limit} OFFSET ${offset}
+    `, [req.user.id]);
 
-    // Get total count
     const [countResult] = await pool.execute(
       'SELECT COUNT(*) as total FROM transactions WHERE userId = ?',
       [req.user.id]
@@ -186,7 +185,7 @@ router.get('/available-auctions', requireApprovedMember, async (req, res) => {
       SELECT 
         a.*,
         cg.name as chitGroupName,
-        cg.totalAmount,
+        cg.amount as totalAmount,
         cg.monthlyContribution
       FROM auctions a
       JOIN chit_groups cg ON a.chitGroupId = cg.id
@@ -220,7 +219,6 @@ router.post('/place-bid', requireApprovedMember, async (req, res) => {
       return res.status(400).json({ message: 'Bid amount must be positive' });
     }
 
-    // Check if auction exists and is active
     const [auctions] = await pool.execute(
       'SELECT * FROM auctions WHERE id = ? AND status = "active"',
       [auctionId]
@@ -232,7 +230,6 @@ router.post('/place-bid', requireApprovedMember, async (req, res) => {
 
     const auction = auctions[0];
 
-    // Check if user is eligible to bid (member of the chit group and hasn't received yet)
     const [memberCheck] = await pool.execute(
       'SELECT * FROM chit_members WHERE chitGroupId = ? AND userId = ? AND status = "active" AND hasReceived = FALSE',
       [auction.chitGroupId, req.user.id]
@@ -242,30 +239,26 @@ router.post('/place-bid', requireApprovedMember, async (req, res) => {
       return res.status(403).json({ message: 'You are not eligible to bid in this auction' });
     }
 
-    // Check if bid amount is valid (should be less than or equal to chit amount)
     const [chitGroup] = await pool.execute(
-      'SELECT totalAmount FROM chit_groups WHERE id = ?',
+      'SELECT amount FROM chit_groups WHERE id = ?',
       [auction.chitGroupId]
     );
 
-    if (bidAmount > chitGroup[0].totalAmount) {
+    if (bidAmount > chitGroup[0].amount) {
       return res.status(400).json({ message: 'Bid amount cannot exceed chit total amount' });
     }
 
-    // Check if user has already placed a bid
     const [existingBid] = await pool.execute(
       'SELECT id FROM bids WHERE auctionId = ? AND userId = ?',
       [auctionId, req.user.id]
     );
 
     if (existingBid.length > 0) {
-      // Update existing bid
       await pool.execute(
         'UPDATE bids SET bidAmount = ?, bidTime = CURRENT_TIMESTAMP WHERE id = ?',
         [bidAmount, existingBid[0].id]
       );
     } else {
-      // Place new bid
       await pool.execute(
         'INSERT INTO bids (auctionId, userId, bidAmount) VALUES (?, ?, ?)',
         [auctionId, req.user.id, bidAmount]
@@ -278,7 +271,6 @@ router.post('/place-bid', requireApprovedMember, async (req, res) => {
     res.status(500).json({ message: 'Error placing bid' });
   }
 });
-
 // @route   GET /api/members/my-bids
 // @desc    Get member's bid history
 // @access  Private (Approved Member)
